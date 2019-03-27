@@ -27,32 +27,39 @@ func NewChatServer(host string, port string, myCtx context.Context) *server {
 	return &ser
 }
 
+func (s *server) Close() {
+	s.l.Close()
+}
 func (s *server) Start() <-chan error {
+	go s.mainRoutine()
+	return s.errc
+}
+func (s *server) mainRoutine () {
 	var err error
-
+	log.Println("Starting ChatServer...")
 	s.l, err = net.Listen("tcp", s.addr)
 	if err != nil {
-		log.Fatal("Error listening:%s", err.Error())
+		s.errc <- err
+		return
 	}
+	log.Printf("Listening on %s", s.addr)
 	defer  s.endGame()
 	go s.broadcaster()
-forLoop:
 	for {
 		conn, err := s.l.Accept()
 		if err != nil {
-			log.Print(err)
+			log.Printf("Accept Error: %s", err.Error())
 			s.errc <- err
-			break forLoop
+			return
 		}
 		go s.handleConn(conn)
 		select {
 		case <-s.ctx.Done():
 			s.errc <-s.ctx.Err()
-			break forLoop
+			return
 		default:
 		}
 	}
-	return s.errc
 }
 
 func (s *server) endGame() {
@@ -96,7 +103,7 @@ func (s *server) broadcaster() {
 }
 
 func (s *server) handleConn(conn net.Conn) {
-	fmt.Println("connection accepted from:%s", conn.RemoteAddr().String())
+	fmt.Printf("connection accepted from %s", conn.RemoteAddr().String())
 	ch := make(chan string)
 	go s.clientWriter(conn, ch)
 	input := bufio.NewScanner(conn)
@@ -119,6 +126,7 @@ func (s *server) clientWriter (conn net.Conn, ch <-chan string) {
 				fmt.Fprintln(conn, msg)
 			case <-s.ctx.Done():
 				fmt.Println("clientWriter: Received cancel")
+				s.errc <- s.ctx.Err()
 				return
 		}
 	}
