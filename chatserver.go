@@ -32,7 +32,7 @@ func (s *server) Start() <-chan error {
 
 	s.l, err = net.Listen("tcp", s.addr)
 	if err != nil {
-		log.Fatal("Error listening:%s", err)
+		log.Fatal("Error listening:%s", err.Error())
 	}
 	defer  s.endGame()
 	go s.broadcaster()
@@ -96,7 +96,7 @@ func (s *server) broadcaster() {
 }
 
 func (s *server) handleConn(conn net.Conn) {
-	fmt.Println("connection accepted from:%s", conn.RemoteAddr())
+	fmt.Println("connection accepted from:%s", conn.RemoteAddr().String())
 	ch := make(chan string)
 	go s.clientWriter(conn, ch)
 	input := bufio.NewScanner(conn)
